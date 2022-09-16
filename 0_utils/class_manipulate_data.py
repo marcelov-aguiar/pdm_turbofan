@@ -22,13 +22,6 @@ class ManipulateData():
                             "2_exploratory_analysis",
                             "1_data"))
         return path_exploratory_data
-    
-    def get_path_output_format_data(self):
-        path_exploratory_data = \
-            self.get_path_exploratory_data()
-        path_output_format_data = \
-            os.path.join(path_exploratory_data, "pdm_exploratory.csv")
-        return path_output_format_data
 
     def get_features_name(self):
         features_name = ["unit_number", "time", "setting_1", "setting_2",
