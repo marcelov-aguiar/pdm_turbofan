@@ -1,0 +1,15 @@
+services:
+  turbofan_nasa:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    image: turbofan_nasa
+    container_name: turbofan_nasa
+    tty: true
+    volumes:
+      - ./code:/root/code
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1.5G
