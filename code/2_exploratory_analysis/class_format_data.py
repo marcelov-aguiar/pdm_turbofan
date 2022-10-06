@@ -1,25 +1,49 @@
 import pandas as pd
 import numpy as np
-import os
+from pathlib import Path
 import sys
+import os
 
-path_manipulate_data = os.path.join(sys.path[0],
-                                    "..",
-                                    "0_utils")
-sys.path.append(path_manipulate_data)
+path_manipulate_data = Path(__file__).parent.parent.joinpath('0_utils')
+
+sys.path.append(str(path_manipulate_data))
 
 from class_manipulate_data import ManipulateData
 
 
 class FormatData(ManipulateData):
+    """É reponsável por formatar os dados brutos para o formato
+    de DataFrame para ser possível fazer a análise exploratória.
+
+    Parameters
+    ----------
+    ManipulateData : object
+        Guardar informações da localização dos
+        repositórios e dos dados específicos do projeto.
+    """
     def __init__(self):
         super().__init__()
 
     def read_txt_rul(self,
-                     input_file_name: str) -> pd.DataFrame:
+                     input_file_name: Path) -> pd.DataFrame:
+        """Responsável por fazer a leitura do arquivo RUL dos
+        dados de teste.
+
+        Parameters
+        ----------
+        input_file_name : Path
+            Nome do arquivo que contém os dados do equipamento que
+            será lido os dados. Pode assumir os seguintes valores:
+            RUL_FD00Y.txt. Onde Y pode assumir os valores 1, 2, 3 ou 4.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame com os dados brutos.
+        """
         path_raw_data = self.get_path_raw_data()
 
-        path_data = os.path.join(path_raw_data, input_file_name)
+        path_data = path_raw_data.joinpath(input_file_name)
 
         data = np.loadtxt(path_data)
 
@@ -30,10 +54,23 @@ class FormatData(ManipulateData):
 
         return df_data
 
-    def format_raw_data(self, input_file_name: str) -> None:
+    def format_raw_data(self,
+                        input_file_name: str) -> None:
+        """Responsável por fazer a leitura do dado bruto no formato
+        .txt, renomear as colunas para os nomes definidos em
+        `get_features_name` e salvar o arquivo em formato csv.
+
+        Parameters
+        ----------
+        input_file_name : Path
+            Nome do arquivo que contém os dados do equipamento que
+            será lido os dados. Pode assumir os seguintes valores:
+            X_FD00Y.txt. Onde X pode assumir valor `test` ou `train`.
+            E Y pode assumir os valores 1, 2, 3 ou 4.
+        """
         path_raw_data = self.get_path_raw_data()
 
-        path_data = os.path.join(path_raw_data, input_file_name)
+        path_data = path_raw_data.joinpath(input_file_name)
 
         data = np.loadtxt(path_data)
 
@@ -46,12 +83,26 @@ class FormatData(ManipulateData):
         input_file_name = os.path.splitext(input_file_name)[0]
         output_file_name = f"{input_file_name}_format.csv"
 
-        path_output_format_data = os.path.join(get_path_exploratory_data,
-                                               output_file_name)
+        path_output_format_data = \
+            get_path_exploratory_data.joinpath(output_file_name)
 
         df_data.to_csv(path_output_format_data, index=False)
 
-    def get_format_data(self, output_file_name: str) -> pd.DataFrame:
+    def get_format_data(self,
+                        output_file_name: str) -> pd.DataFrame:
+        """Responsável por fazer a leitura do arquivo salvo por
+        `format_raw_data`.
+
+        Parameters
+        ----------
+        output_file_name : str
+            Nome do arquivo do equipamento que será feito a leitura.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame dos dados do equipamento.
+        """
         get_path_exploratory_data = self.get_path_exploratory_data()
 
         output_file_name = os.path.splitext(output_file_name)[0]
