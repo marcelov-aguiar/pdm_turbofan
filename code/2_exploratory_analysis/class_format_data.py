@@ -3,6 +3,17 @@ import numpy as np
 from pathlib import Path
 import sys
 import os
+import logging
+
+# region: parâmetros necessários para uso do logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+console_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(console_format)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
+# endregion
 
 path_manipulate_data = Path(__file__).parent.parent.joinpath('0_utils')
 
@@ -112,8 +123,8 @@ class FormatData(ManipulateData):
                              f"{output_file_name}_format.csv"))
 
         except Exception as e:
-            print("Dado não encontrado. Execute método " +
-                  f"format_raw_data para {output_file_name}.")
-            print(e)
+            logger.error("Dado não encontrado. Execute método " +
+                         f"format_raw_data para {output_file_name}.")
+            logger.error(e)
 
         return df_data

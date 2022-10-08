@@ -1,6 +1,18 @@
+from cmath import log
 import sys
 from pathlib import Path
 import pandas as pd
+import logging
+
+# region: parâmetros necessários para uso do logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+console_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(console_format)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
+# endregion
 
 path_explora_analysis = \
     Path(__file__).parent.parent.joinpath("2_exploratory_analysis")
@@ -25,7 +37,11 @@ class Preprocessing(FormatData):
         self.equipment_name = equipment_name
 
     def run_preprocessing(self):
+        logger.info("Iniciando processamento dos dados de treino.")
         self.training_data_preprocessing()
+        logger.info("Iniciando processamento dos dados de teste.")
+        self.test_data_preprocessing()
+        logger.info("Processamento finalizado.")
 
     def training_data_preprocessing(self):
         """Responsável por executar todas etapas do processamento
@@ -34,6 +50,8 @@ class Preprocessing(FormatData):
         self.format_raw_data(f"train_{self.equipment_name}.txt")
         df_train = self.get_format_data(f"train_{self.equipment_name}.txt")
         df_train = self.remove_feat_low_variance(df_train)
+
+        # Criação da feature RUL (Remaining  Useful  Life)
         df_train = \
             df_train.groupby('unit_number').apply(self.add_rul).reset_index()
         df_train = df_train.drop(columns=["level_1", "index"])
@@ -47,7 +65,34 @@ class Preprocessing(FormatData):
         df_train.to_csv(path_aux, index=False)
 
     def test_data_preprocessing(self):
-        pass
+        """Responsável por executar todas etapas do processamento
+        para os dados de teste.
+        """
+        self.format_raw_data(f"test_{self.equipment_name}.txt")
+        df_test = self.get_format_data(f"test_{self.equipment_name}.txt")
+        df_test = self.remove_feat_low_variance(df_test)
+
+        # Criação da feature RUL (Remaining  Useful  Life)
+        df_test_rul = pd.DataFrame(
+            df_test.groupby('unit_number')['time'].max()).reset_index()
+        df_test_rul.columns = ['id', 'max']
+
+        df_rul = self.read_txt_rul(f'RUL_{self.equipment_name}.txt')
+        df_rul['TOTAL_RUL'] = df_test_rul['max'] + df_rul['max']
+        df_rul = df_rul.drop(columns=["max"])
+
+        df_test.merge(df_rul, on=['unit_number'], how='left')
+        df_test = df_test.merge(df_rul, on=['unit_number'], how='left')
+        df_test['RUL'] = df_test['TOTAL_RUL'] - df_test['time']
+        df_test.drop('TOTAL_RUL', axis=1, inplace=True)
+
+        # salvando dados da base de dados de teste
+        path_preprocessing_output = self.get_path_preprocessing_output()
+
+        path_aux = path_preprocessing_output.joinpath(
+            f"test_{self.equipment_name}.csv")
+
+        df_test.to_csv(path_aux, index=False)
 
     def remove_feat_low_variance(self,
                                  df_data: pd.DataFrame,
@@ -71,7 +116,7 @@ class Preprocessing(FormatData):
         good_sensor = list(df_data.columns)
         for sensor in df_data.columns:
             if df_data[sensor].var() <= VAR:
-                print("Sensor is flat:", sensor)
+                logger.info(f"Sensor is flat: {sensor}")
                 good_sensor.remove(sensor)
         df_data = df_data[good_sensor]
         return df_data
@@ -100,4 +145,3 @@ class Preprocessing(FormatData):
 if __name__ == '__main__':
     preprocessing = Preprocessing('FD001')
     preprocessing.run_preprocessing()
-    print("Teste")
