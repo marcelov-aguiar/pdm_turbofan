@@ -23,9 +23,22 @@ from class_format_data import FormatData
 
 
 class Preprocessing(FormatData):
+    """
+    Responsável por executar todas as etapas do pré-processamento
+    em todos os dados.
+    """
     def __init__(self,
-                 equipment_name: str) -> None:
-        """_summary_
+                 ) -> None:
+        """Responsável por executar todas as etapas do pré-processamento
+        em todos os dados.
+        """
+        super().__init__()
+
+    def run_preprocessing(self,
+                          equipment_name: str):
+        """
+        Responsável por executar o pré-processamento para
+        os dados de treino e para os dados de teste.
 
         Parameters
         ----------
@@ -33,23 +46,28 @@ class Preprocessing(FormatData):
             Nome do equipamento que será executado o pré-processamento.
             Pode assumir os seguintes valores: FD001, FD002, FD003 ou FD004.
         """
-        super().__init__()
         self.equipment_name = equipment_name
-
-    def run_preprocessing(self):
         logger.info("Iniciando processamento dos dados de treino.")
         self.training_data_preprocessing()
         logger.info("Iniciando processamento dos dados de teste.")
         self.test_data_preprocessing()
         logger.info("Processamento finalizado.")
 
-    def training_data_preprocessing(self):
+    def training_data_preprocessing(self,
+                                    remove_feat_low_variance: bool = False):
         """Responsável por executar todas etapas do processamento
         para os dados de treino.
+
+        Parameters
+        ----------
+        remove_feat_low_variance : pd.DataFrame, optional.
+            Caso True, remove as features de baixa variância. Caso contrário,
+            as features não são removidas, by default False.
         """
         self.format_raw_data(f"train_{self.equipment_name}.txt")
         df_train = self.get_format_data(f"train_{self.equipment_name}.txt")
-        df_train = self.remove_feat_low_variance(df_train)
+        if remove_feat_low_variance:
+            df_train = self.remove_feat_low_variance(df_train)
 
         # Criação da feature RUL (Remaining  Useful  Life)
         df_train = \
@@ -64,13 +82,21 @@ class Preprocessing(FormatData):
 
         df_train.to_csv(path_aux, index=False)
 
-    def test_data_preprocessing(self):
+    def test_data_preprocessing(self,
+                                remove_feat_low_variance: bool = False):
         """Responsável por executar todas etapas do processamento
         para os dados de teste.
+
+        Parameters
+        ----------
+        remove_feat_low_variance : pd.DataFrame, optional.
+            Caso True, remove as features de baixa variância. Caso contrário,
+            as features não são removidas, by default False.
         """
         self.format_raw_data(f"test_{self.equipment_name}.txt")
         df_test = self.get_format_data(f"test_{self.equipment_name}.txt")
-        df_test = self.remove_feat_low_variance(df_test)
+        if remove_feat_low_variance:
+            df_test = self.remove_feat_low_variance(df_test)
 
         # Criação da feature RUL (Remaining  Useful  Life)
         df_test_rul = pd.DataFrame(
@@ -143,5 +169,5 @@ class Preprocessing(FormatData):
 
 
 if __name__ == '__main__':
-    preprocessing = Preprocessing('FD001')
-    preprocessing.run_preprocessing()
+    preprocessing = Preprocessing()
+    preprocessing.run_preprocessing('FD001')
