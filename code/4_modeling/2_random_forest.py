@@ -2,6 +2,7 @@ import sys
 import os
 import pandas as pd
 import numpy as np
+from typing import List
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import RidgeCV, LassoLars, Ridge
 from sklearn.ensemble import RandomForestRegressor
@@ -176,6 +177,42 @@ def plot_prediction(name_output: pd.DataFrame,
 
     return fig
 
+def plot_features_importance(features_name: List[str],
+                             coef_features: np.ndarray) -> Figure:
+    """Responsável por criar um gráfico com o nome e o peso das features.
+
+    Parameters
+    ----------
+    features_name : List[str]
+        Nome das features.
+    coef_features : np.array
+        Coeficientes das features.
+
+    Returns
+    -------
+    Figure
+        Gráfico com o nome e o peso das features
+    """
+    df_coef = pd.DataFrame(columns=["Feature", "Coef"])
+    df_coef["Feature"] = features_name
+    df_coef["Coef"] = coef_features
+
+    df_coef = df_coef[df_coef["Coef"] != 0]
+    df_coef.sort_values("Coef", inplace=True, ascending=True)
+    plt.rcParams['font.size'] = 11
+    fig = plt.figure(figsize=(15, 9))
+    plt.barh(df_coef["Feature"], df_coef["Coef"],
+             color='darkblue')
+
+    plt.barh(df_coef["Feature"][df_coef["Coef"] < 0],
+             df_coef["Coef"][df_coef["Coef"] < 0],
+             color='maroon')
+
+    plt.title(f'Coeficientes Modelo')
+    plt.yticks(rotation=45)
+
+    return fig
+
 def save_metrics_mlflow(df_metrics: pd.DataFrame,
                         metric_legend: str):
     """Salva as métricas no MLFlow com base no DataFrame
@@ -285,3 +322,10 @@ with mlflow.start_run(run_name='RandomForest'):
                              signature=signature)
     
     mlflow.log_param('regressor', model)
+
+    logger.info("Salvando coeficientes do modelo.")
+
+    fig = plot_features_importance(input_model,
+                                   model.regressor_['regressor'].feature_importances_)
+
+    mlflow.log_figure(fig, artifact_file='feature_importance.png')
