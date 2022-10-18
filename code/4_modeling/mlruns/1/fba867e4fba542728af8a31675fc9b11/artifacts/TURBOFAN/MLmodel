@@ -1,0 +1,28 @@
+artifact_path: TURBOFAN
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.8.9
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 0.23.2
+mlflow_version: 1.29.0
+model_uuid: 7dc00c4587dc4738ba093d371cf0ab30
+run_id: fba867e4fba542728af8a31675fc9b11
+signature:
+  inputs: '[{"name": "setting_1", "type": "double"}, {"name": "setting_2", "type":
+    "double"}, {"name": "sensor_2", "type": "double"}, {"name": "sensor_3", "type":
+    "double"}, {"name": "sensor_4", "type": "double"}, {"name": "sensor_7", "type":
+    "double"}, {"name": "sensor_8", "type": "double"}, {"name": "sensor_9", "type":
+    "double"}, {"name": "sensor_11", "type": "double"}, {"name": "sensor_12", "type":
+    "double"}, {"name": "sensor_13", "type": "double"}, {"name": "sensor_14", "type":
+    "double"}, {"name": "sensor_15", "type": "double"}, {"name": "sensor_17", "type":
+    "double"}, {"name": "sensor_20", "type": "double"}, {"name": "sensor_21", "type":
+    "double"}]'
+  outputs: '[{"name": "RUL", "type": "double"}]'
+utc_time_created: '2022-10-18 02:22:01.083785'
