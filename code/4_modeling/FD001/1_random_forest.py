@@ -277,7 +277,7 @@ output_model = ['RUL']
 
 equipment_name = 'FD001'
 
-control_panel = ControlPanel(rolling_mean=True,
+control_panel = ControlPanel(rolling_mean=False,
                              window_mean=24)
 
 logger.info("Lendo os dados de treino.")
