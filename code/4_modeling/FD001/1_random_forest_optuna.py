@@ -17,6 +17,7 @@ from mlflow.types.schema import Schema, ColSpec
 import logging
 from pathlib import Path
 import optuna
+from class_control_panel import ControlPanel
 
 
 # region: parâmetros necessários para uso do logger
@@ -238,69 +239,6 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
                           df_metrics[metric_name][0])
 
 
-class ControlPanel():
-    """É responsável por definir parâmetros para fazer diferentes
-    experimentos
-    """
-    def __init__(self,
-                 rolling_mean: bool = False,
-                 window_mean: int = 0,
-                 is_grid_search: bool = False) -> None:
-        """É responsável por definir parâmetros para fazer diferentes
-        experimentos.
-
-        Parameters
-        ----------
-        rolling_mean : bool, optional.
-            Caso True, será feita a média móvel dos dados conforme o número da
-            unidade, by deafult False.
-        window_mean : int, optional.
-            Tamanho da janela que será feita a média móvel, by default 0
-        rolling_mean : bool
-            Caso True, será feito GridSearch com validação cruzada, by default False.
-        """
-        self.rolling_mean = rolling_mean
-        self.window_mean = window_mean
-        self.is_grid_search = is_grid_search
-
-
-logger.info("Definindo as entradas, a saída e o equipamento.")
-# features selecionadas pela variância
-# input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
-#                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
-#                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
-#                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
-
-# # todas as entradas
-input_model = [
-    'setting_1', 'setting_2', 'setting_3',
-    'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
-    'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
-    'sensor_12', 'sensor_13', 'sensor_14', 'sensor_15', 'sensor_16',
-    'sensor_17', 'sensor_18', 'sensor_19', 'sensor_20', 'sensor_21']
-
-output_model = ['RUL']
-
-equipment_name = 'FD001'
-
-control_panel = ControlPanel(rolling_mean=True,
-                             window_mean=12,
-                             is_grid_search=False)
-
-logger.info("Lendo os dados de treino.")
-
-path_dataset_train = \
-    str(path_preprocessing_output.joinpath(f"train_{equipment_name}.csv"))
-
-df_train = pd.read_csv(path_dataset_train)
-
-logger.info("Lendo os dados de teste.")
-
-path_dataset_test = \
-    str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
-
-df_test = pd.read_csv(path_dataset_test)
-
 class Objective():
     def __init__(self, model, X_train, y_train) -> None:
         self.model = model
@@ -326,6 +264,56 @@ class Objective():
 
         return cross_val_score(self.model, self.X_train, self.y_train, n_jobs=-1, cv=3).mean()
 
+
+logger.info("Definindo as entradas, a saída e o equipamento.")
+# features selecionadas pela variância
+# input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
+#                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
+#                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
+#                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
+
+# # todas as entradas
+input_model = [
+    'setting_1', 'setting_2', 'setting_3',
+    'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
+    'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
+    'sensor_12', 'sensor_13', 'sensor_14', 'sensor_15', 'sensor_16',
+    'sensor_17', 'sensor_18', 'sensor_19', 'sensor_20', 'sensor_21']
+
+output_model = ['RUL']
+
+equipment_name = 'FD001'
+
+control_panel = ControlPanel(rolling_mean=False,
+                             window_mean=12,
+                             is_grid_search=False,
+                             use_validation_data=True,
+                             use_optuna=True,
+                             number_units_validation=10)
+
+logger.info("Lendo os dados de treino.")
+
+path_dataset_train = \
+    str(path_preprocessing_output.joinpath(f"train_{equipment_name}.csv"))
+
+df_train = pd.read_csv(path_dataset_train)
+
+logger.info("Lendo os dados de teste.")
+
+path_dataset_test = \
+    str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
+
+df_test = pd.read_csv(path_dataset_test)
+
+if control_panel.use_validation_data:
+    units_quantity = control_panel.number_units_validation
+    units_numbers = df_train['unit_number'].unique()[-4:]
+    for unit_number in units_numbers:
+        df_aux = df_train[df_train['unit_number'] == unit_number].copy()
+        df_train = df_train[~(df_train['unit_number'] == unit_number)]
+        df_aux['unit_number'] = df_aux['unit_number'] + 100
+        df_test = pd.concat([df_test, df_aux], axis=0)
+
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
@@ -334,7 +322,7 @@ with mlflow.start_run(run_name='RandomForest'):
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
     pipeline = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
+                                          transformer=StandardScaler())
     model = pipeline
 
     if control_panel.rolling_mean:
@@ -349,20 +337,21 @@ with mlflow.start_run(run_name='RandomForest'):
     y_train = df_train[output_model]
     X_train = df_train[input_model]
 
-    objective = Objective(model, X_train, y_train)
-    study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100)
+    if control_panel.use_optuna:
+        objective = Objective(model, X_train, y_train)
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=100)
 
-    best_params = study.best_trial.params
-    
-    model = RandomForestRegressor()
-    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
+        best_params = study.best_trial.params
 
-    pipeline = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
-    model = pipeline
+        model = RandomForestRegressor()
+        pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
-    model.set_params(**best_params)
+        pipeline = TransformedTargetRegressor(regressor=pipeline,
+                                           transformer=StandardScaler())
+        model = pipeline
+
+        model.set_params(**best_params)
 
     logger.info("Treinando o modelo.")
     model.fit(X_train, y_train)
