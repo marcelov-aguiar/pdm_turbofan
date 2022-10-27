@@ -47,3 +47,9 @@ Foi utilizado um padrão de projeto numpy para documentação do cabeçalho das 
 ```
 autopep8 --in-place --aggressive --aggressive <filename>
 ```
+
+# Modelagem
+## MLFlow
+Necessário alterar a constante `MAX_PARAM_VAL_LENGTH` para o valor igual a 1000. Essa alteração permite salvar uma string maior nos parâmetros do MLFlow. A constante se localiza no seguinte arquivo: \Lib\site-packages\mlflow\utils\validation.py
+
+

@@ -373,7 +373,7 @@ with mlflow.start_run(run_name='RandomForest'):
                              'TURBOFAN',
                              signature=signature)
 
-    mlflow.log_param('regressor', model)
+    mlflow.log_param('regressor', model.__str__())
     mlflow.log_param('control panel', control_panel.__dict__)
 
     logger.info("Salvando coeficientes do modelo.")
