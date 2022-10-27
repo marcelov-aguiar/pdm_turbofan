@@ -15,6 +15,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
 from pathlib import Path
+from class_control_panel import ControlPanel
 
 
 # region: parâmetros necessários para uso do logger
@@ -236,28 +237,6 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
                           df_metrics[metric_name][0])
 
 
-class ControlPanel():
-    """É responsável por definir parâmetros para fazer diferentes
-    experimentos
-    """
-    def __init__(self,
-                 rolling_mean: bool = False,
-                 window_mean: int = 0) -> None:
-        """É responsável por definir parâmetros para fazer diferentes
-        experimentos.
-
-        Parameters
-        ----------
-        rolling_mean : bool
-            Caso True, será feita a média móvel dos dados conforme o número da
-            unidade.
-        window_mean : int
-            Tamanho da janela que será feita a média móvel.
-        """
-        self.rolling_mean = rolling_mean
-        self.window_mean = window_mean
-
-
 logger.info("Definindo as entradas, a saída e o equipamento.")
 # # features selecionadas pela variância
 # input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
@@ -278,7 +257,9 @@ output_model = ['RUL']
 equipment_name = 'FD001'
 
 control_panel = ControlPanel(rolling_mean=False,
-                             window_mean=24)
+                             window_mean=24,
+                             use_validation_data=True,
+                             number_units_validation=4)
 
 logger.info("Lendo os dados de treino.")
 
@@ -293,6 +274,15 @@ path_dataset_test = \
     str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
 
 df_test = pd.read_csv(path_dataset_test)
+
+if control_panel.use_validation_data:
+    units_quantity = control_panel.number_units_validation
+    units_numbers = df_train['unit_number'].unique()[-4:]
+    for unit_number in units_numbers:
+        df_aux = df_train[df_train['unit_number'] == unit_number].copy()
+        df_train = df_train[~(df_train['unit_number'] == unit_number)]
+        df_aux['unit_number'] = df_aux['unit_number'] + 100
+        df_test = pd.concat([df_test, df_aux], axis=0)
 
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
