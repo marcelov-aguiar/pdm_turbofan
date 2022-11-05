@@ -245,7 +245,7 @@ logger.info("Definindo as entradas, a saída e o equipamento.")
 #                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
 # todas as entradas
-input_model = [
+input_model = ['time',
     'setting_1', 'setting_2', 'setting_3',
     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
     'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
