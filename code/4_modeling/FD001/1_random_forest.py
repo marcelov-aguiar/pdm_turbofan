@@ -238,19 +238,19 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
 
 
 logger.info("Definindo as entradas, a saída e o equipamento.")
-# features selecionadas pela variância
-input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
-               'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
-               'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
-               'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
+# # features selecionadas pela variância
+# input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
+#                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
+#                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
+#                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
-# # todas as entradas
-# input_model = [
-#     'setting_1', 'setting_2', 'setting_3',
-#     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
-#     'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
-#     'sensor_12', 'sensor_13', 'sensor_14', 'sensor_15', 'sensor_16',
-#     'sensor_17', 'sensor_18', 'sensor_19', 'sensor_20', 'sensor_21']
+# todas as entradas
+input_model = ['time',
+    'setting_1', 'setting_2', 'setting_3',
+    'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
+    'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
+    'sensor_12', 'sensor_13', 'sensor_14', 'sensor_15', 'sensor_16',
+    'sensor_17', 'sensor_18', 'sensor_19', 'sensor_20', 'sensor_21']
 
 output_model = ['RUL']
 
