@@ -1,10 +1,8 @@
-import sys
 import pandas as pd
 import numpy as np
 from typing import List
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
 from sklearn.pipeline import Pipeline
@@ -15,7 +13,9 @@ import mlflow
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
-from pathlib import Path
+import util
+from class_manipulate_data import ManipulateData
+from class_control_panel import ControlPanel
 
 
 # region: parâmetros necessários para uso do logger
@@ -28,11 +28,7 @@ console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 # endregion
 
-path_manipulate_data = Path(__file__).parent.parent.parent.joinpath("0_utils")
-
-sys.path.append(str(path_manipulate_data))
-
-from class_manipulate_data import ManipulateData
+logger.info(util.init())
 
 manipulate_data = ManipulateData()
 path_preprocessing_output = manipulate_data.get_path_preprocessing_output()
@@ -237,40 +233,14 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
                           df_metrics[metric_name][0])
 
 
-class ControlPanel():
-    """É responsável por definir parâmetros para fazer diferentes
-    experimentos
-    """
-    def __init__(self,
-                 rolling_mean: bool = False,
-                 window_mean: int = 0,
-                 is_grid_search: bool = False) -> None:
-        """É responsável por definir parâmetros para fazer diferentes
-        experimentos.
-
-        Parameters
-        ----------
-        rolling_mean : bool, optional.
-            Caso True, será feita a média móvel dos dados conforme o número da
-            unidade, by deafult False.
-        window_mean : int, optional.
-            Tamanho da janela que será feita a média móvel, by default 0
-        rolling_mean : bool
-            Caso True, será feito GridSearch com validação cruzada, by default False.
-        """
-        self.rolling_mean = rolling_mean
-        self.window_mean = window_mean
-        self.is_grid_search = is_grid_search
-
-
 logger.info("Definindo as entradas, a saída e o equipamento.")
-# features selecionadas pela variância
+# # features selecionadas pela variância
 # input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
 #                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
 #                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
 #                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
-# # todas as entradas
+# todas as entradas
 input_model = ['time',
     'setting_1', 'setting_2', 'setting_3',
     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
@@ -284,7 +254,8 @@ equipment_name = 'FD001'
 
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=24,
-                             is_grid_search=True)
+                             use_validation_data=True,
+                             number_units_validation=4)
 
 logger.info("Lendo os dados de treino.")
 
@@ -300,26 +271,25 @@ path_dataset_test = \
 
 df_test = pd.read_csv(path_dataset_test)
 
+if control_panel.use_validation_data:
+    units_quantity = control_panel.number_units_validation
+    units_numbers = df_train['unit_number'].unique()[-4:]
+    for unit_number in units_numbers:
+        df_aux = df_train[df_train['unit_number'] == unit_number].copy()
+        df_train = df_train[~(df_train['unit_number'] == unit_number)]
+        df_aux['unit_number'] = df_aux['unit_number'] + 100
+        df_test = pd.concat([df_test, df_aux], axis=0)
+
+
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
 with mlflow.start_run(run_name='RandomForest'):
-    model = RandomForestRegressor()
+    model = RandomForestRegressor(max_depth=8)
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
-    pipeline = TransformedTargetRegressor(regressor=pipeline,
+    model = TransformedTargetRegressor(regressor=pipeline,
                                        transformer=StandardScaler())
-    if control_panel.is_grid_search:
-        param_grid = {
-            "regressor__regressor__max_depth": [4, 5, 6, 7, 8, 9, 10],
-            "regressor__regressor__max_features": [2, 3, 4, 5],
-            "regressor__regressor__n_estimators": [10, 100, 200],
-            "regressor__regressor__min_samples_split": [2, 4, 8, 10]
-        }
-        model = GridSearchCV(estimator=pipeline, param_grid=param_grid, 
-                             cv=3, n_jobs=-1, verbose=2)
-    else:
-        model = pipeline
 
     if control_panel.rolling_mean:
         df_rolling = \
@@ -390,18 +360,13 @@ with mlflow.start_run(run_name='RandomForest'):
                              'TURBOFAN',
                              signature=signature)
 
-    mlflow.log_param('regressor', pipeline)
+    mlflow.log_param('regressor', model.__str__())
     mlflow.log_param('control panel', control_panel.__dict__)
 
     logger.info("Salvando coeficientes do modelo.")
-    if control_panel.is_grid_search:
-        fig = plot_features_importance(input_model,
-                                       model.best_estimator_.regressor_['regressor']
-                                       .feature_importances_)
-        mlflow.log_param('best_params', model.best_params_)
-    else:
-        fig = plot_features_importance(input_model,
-                                       model.regressor_['regressor']
-                                       .feature_importances_)
+
+    fig = plot_features_importance(input_model,
+                                   model.regressor_['regressor']
+                                   .feature_importances_)
 
     mlflow.log_figure(fig, artifact_file='feature_importance.png')

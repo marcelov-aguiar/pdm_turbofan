@@ -1,8 +1,7 @@
-from cmath import log
-import sys
-from pathlib import Path
 import pandas as pd
 import logging
+import util
+from class_format_data import FormatData
 
 # region: parâmetros necessários para uso do logger
 logger = logging.getLogger(__name__)
@@ -13,13 +12,6 @@ console_handler.setFormatter(console_format)
 console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 # endregion
-
-path_explora_analysis = \
-    Path(__file__).parent.parent.joinpath("2_exploratory_analysis")
-sys.path.append(str(path_explora_analysis))
-
-
-from class_format_data import FormatData
 
 
 class Preprocessing(FormatData):

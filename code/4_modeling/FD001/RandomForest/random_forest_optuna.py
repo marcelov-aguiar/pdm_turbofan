@@ -1,9 +1,9 @@
-import sys
 import pandas as pd
 import numpy as np
 from typing import List
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import cross_val_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
 from sklearn.pipeline import Pipeline
@@ -14,7 +14,9 @@ import mlflow
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
-from pathlib import Path
+import optuna
+import util
+from class_manipulate_data import ManipulateData
 from class_control_panel import ControlPanel
 
 
@@ -28,11 +30,7 @@ console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 # endregion
 
-path_manipulate_data = Path(__file__).parent.parent.parent.joinpath("0_utils")
-
-sys.path.append(str(path_manipulate_data))
-
-from class_manipulate_data import ManipulateData
+logger.info(util.init())
 
 manipulate_data = ManipulateData()
 path_preprocessing_output = manipulate_data.get_path_preprocessing_output()
@@ -237,14 +235,40 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
                           df_metrics[metric_name][0])
 
 
+class Objective():
+    def __init__(self, model, X_train, y_train) -> None:
+        self.model = model
+        self.X_train = X_train
+        self.y_train = y_train
+    
+    def __call__(self, trial):
+        param_grid = {
+            "regressor__regressor__max_depth":
+            trial.suggest_int("regressor__regressor__max_depth", 4, 10),
+
+            "regressor__regressor__max_features":
+            trial.suggest_int("regressor__regressor__max_features", 2, 5),
+
+            "regressor__regressor__n_estimators": 
+            trial.suggest_int("regressor__regressor__n_estimators", 10, 200),
+
+            "regressor__regressor__min_samples_split":
+            trial.suggest_int("regressor__regressor__min_samples_split", 2, 10)
+        }
+
+        self.model.set_params(**param_grid)
+
+        return cross_val_score(self.model, self.X_train, self.y_train, n_jobs=-1, cv=3).mean()
+
+
 logger.info("Definindo as entradas, a saída e o equipamento.")
-# # features selecionadas pela variância
+# features selecionadas pela variância
 # input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
 #                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
 #                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
 #                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
-# todas as entradas
+# # todas as entradas
 input_model = ['time',
     'setting_1', 'setting_2', 'setting_3',
     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
@@ -257,9 +281,11 @@ output_model = ['RUL']
 equipment_name = 'FD001'
 
 control_panel = ControlPanel(rolling_mean=False,
-                             window_mean=24,
+                             window_mean=12,
+                             is_grid_search=False,
                              use_validation_data=True,
-                             number_units_validation=4)
+                             use_optuna=True,
+                             number_units_validation=10)
 
 logger.info("Lendo os dados de treino.")
 
@@ -284,16 +310,16 @@ if control_panel.use_validation_data:
         df_aux['unit_number'] = df_aux['unit_number'] + 100
         df_test = pd.concat([df_test, df_aux], axis=0)
 
-
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
 with mlflow.start_run(run_name='RandomForest'):
-    model = RandomForestRegressor(max_depth=8)
+    model = RandomForestRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
-    model = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
+    pipeline = TransformedTargetRegressor(regressor=pipeline,
+                                          transformer=StandardScaler())
+    model = pipeline
 
     if control_panel.rolling_mean:
         df_rolling = \
@@ -306,6 +332,22 @@ with mlflow.start_run(run_name='RandomForest'):
 
     y_train = df_train[output_model]
     X_train = df_train[input_model]
+
+    if control_panel.use_optuna:
+        objective = Objective(model, X_train, y_train)
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=100)
+
+        best_params = study.best_trial.params
+
+        model = RandomForestRegressor()
+        pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
+
+        pipeline = TransformedTargetRegressor(regressor=pipeline,
+                                           transformer=StandardScaler())
+        model = pipeline
+
+        model.set_params(**best_params)
 
     logger.info("Treinando o modelo.")
     model.fit(X_train, y_train)
@@ -368,7 +410,6 @@ with mlflow.start_run(run_name='RandomForest'):
     mlflow.log_param('control panel', control_panel.__dict__)
 
     logger.info("Salvando coeficientes do modelo.")
-
     fig = plot_features_importance(input_model,
                                    model.regressor_['regressor']
                                    .feature_importances_)
