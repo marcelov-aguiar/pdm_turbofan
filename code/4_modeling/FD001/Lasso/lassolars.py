@@ -254,7 +254,8 @@ equipment_name = 'FD001'
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=24,
                              use_validation_data=True,
-                             number_units_validation=4)
+                             number_units_validation=10,
+                             use_savgol_filter=True)
 
 logger.info("Lendo os dados de treino.")
 
@@ -298,6 +299,11 @@ with mlflow.start_run(run_name='Lasso'):
     y_train = df_train[output_model]
     X_train = df_train[input_model]
 
+    X_train, new_columns = \
+        control_panel.apply_use_savgol_filter(X_train,
+                                              ignore_column='time')
+    X_train = X_train[new_columns+['time']]
+
     if control_panel.rolling_mean:
         df_rolling = \
             df_test.groupby('unit_number').rolling(
@@ -308,7 +314,12 @@ with mlflow.start_run(run_name='Lasso'):
     y_test = df_test[output_model]
     X_test = df_test[input_model]
 
-    alpha_best = 1e-09
+    X_test, new_columns = \
+        control_panel.apply_use_savgol_filter(X_test,
+                                              ignore_column='time')
+    X_test = X_test[new_columns+['time']]
+
+    alpha_best = 0.05
 
     model = Lasso(alpha=alpha_best, max_iter=5000)
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
@@ -352,7 +363,7 @@ with mlflow.start_run(run_name='Lasso'):
 
     logger.info("Salvando artefatos no MLFlow.")
     info_columns = []
-    for column in input_model:
+    for column in X_train.columns:
         info_columns.append(ColSpec(('double'), column))
     input_schema = Schema(info_columns)
 
@@ -368,7 +379,7 @@ with mlflow.start_run(run_name='Lasso'):
 
     logger.info("Salvando coeficientes do modelo.")
 
-    fig = plot_features_importance(input_model,
+    fig = plot_features_importance(X_train.columns,
                                    model.regressor_['regressor']
                                    .coef_)
 
