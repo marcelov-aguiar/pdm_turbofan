@@ -1,8 +1,7 @@
-import sys
 import pandas as pd
 import numpy as np
 from typing import List
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
@@ -14,9 +13,9 @@ import mlflow
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
-from pathlib import Path
+import util
 from class_control_panel import ControlPanel
-
+from class_manipulate_data import ManipulateData
 
 # region: parâmetros necessários para uso do logger
 logger = logging.getLogger(__name__)
@@ -28,11 +27,7 @@ console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 # endregion
 
-path_manipulate_data = Path(__file__).parent.parent.parent.joinpath("0_utils")
-
-sys.path.append(str(path_manipulate_data))
-
-from class_manipulate_data import ManipulateData
+logger.info(util.init())
 
 manipulate_data = ManipulateData()
 path_preprocessing_output = manipulate_data.get_path_preprocessing_output()
@@ -284,15 +279,12 @@ if control_panel.use_validation_data:
         df_aux['unit_number'] = df_aux['unit_number'] + 100
         df_test = pd.concat([df_test, df_aux], axis=0)
 
+
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='RidgeCV'):
-    model = RidgeCV(alphas=np.logspace(-6, 6, 100))
-    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
-
-    model = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
+with mlflow.start_run(run_name='Lasso'):
+    
 
     if control_panel.rolling_mean:
         df_rolling = \
@@ -306,6 +298,23 @@ with mlflow.start_run(run_name='RidgeCV'):
     y_train = df_train[output_model]
     X_train = df_train[input_model]
 
+    if control_panel.rolling_mean:
+        df_rolling = \
+            df_test.groupby('unit_number').rolling(
+                window=control_panel.window_mean).mean()
+        df_rolling = df_rolling.dropna()
+        df_rolling = df_rolling.reset_index()
+        df_test = df_rolling.copy()
+    y_test = df_test[output_model]
+    X_test = df_test[input_model]
+
+    alpha_best = 1e-09
+
+    model = Lasso(alpha=alpha_best, max_iter=5000)
+    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
+
+    model = TransformedTargetRegressor(regressor=pipeline,
+                                       transformer=StandardScaler())
     logger.info("Treinando o modelo.")
     model.fit(X_train, y_train)
 
@@ -325,15 +334,6 @@ with mlflow.start_run(run_name='RidgeCV'):
     fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
     mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
 
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_test.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_test = df_rolling.copy()
-    y_test = df_test[output_model]
-    X_test = df_test[input_model]
 
     y_test_pred = model.predict(X_test)
     df_metrics_test = create_df_metrics(y_test, y_test_pred)
@@ -363,7 +363,7 @@ with mlflow.start_run(run_name='RidgeCV'):
                              'TURBOFAN',
                              signature=signature)
 
-    # mlflow.log_param('regressor', model)
+    mlflow.log_param('regressor', model)
     mlflow.log_param('control panel', control_panel.__dict__)
 
     logger.info("Salvando coeficientes do modelo.")
