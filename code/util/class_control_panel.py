@@ -35,6 +35,9 @@ class ControlPanel():
         number_units_validation : int, optional
             Número de unidades que será migrado dos dados de treino para os
             dados de teste.
+        apply_use_savgol_filter: bool, optional
+            Caso True, filtro Savitzky–Golay é aplicado para diminuir o ruído dos
+            dados, by default False
         """
         self.rolling_mean = rolling_mean
         self.window_mean = window_mean
@@ -59,3 +62,18 @@ class ControlPanel():
                                                                 polyorder)
                     new_columns.append(f'{column}_savgol')
         return df_data, new_columns
+    
+    def apply_use_validation_data(self,
+                                  df_train: pd.DataFrame,
+                                  df_test: pd.DataFrame,
+                                  column_name: str = 'unit_number') \
+                                    -> Tuple[pd.DataFrame, pd.DataFrame]:
+        if self.use_validation_data:
+            units_quantity = self.number_units_validation
+            units_numbers = df_train[column_name].unique()[-units_quantity:]
+            for unit_number in units_numbers:
+                df_aux = df_train[df_train[column_name] == unit_number].copy()
+                df_train = df_train[~(df_train[column_name] == unit_number)]
+                df_aux[column_name] = df_aux[column_name] + 100
+                df_test = pd.concat([df_test, df_aux], axis=0)
+            return df_train, df_test
