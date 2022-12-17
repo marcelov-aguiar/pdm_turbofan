@@ -278,25 +278,16 @@ output_model = ['RUL']
 equipment_name = 'FD001'
 
 feature_selection = [
-    "time^2",
-    "time sensor_7",
-    "time sensor_11",
-    "time sensor_14",
-    "sensor_1 sensor_4",
-    "sensor_2 sensor_16",
-    "sensor_4 sensor_14",
-    "sensor_7 sensor_11",
-    "sensor_7 sensor_13",
-    "sensor_8 sensor_20",
-    "sensor_9 sensor_21",
-    "sensor_11 sensor_14",
-    "sensor_11 sensor_16",
-    "sensor_12 sensor_13",
-    "sensor_13 sensor_19",
-    "sensor_14 sensor_15",
-    "sensor_14 sensor_19",
-    "sensor_16 sensor_21",
-    "sensor_19 sensor_20"
+    
+        "time sensor_10",
+        "time sensor_15",
+        "time sensor_20",
+        "sensor_1 sensor_7",
+        "sensor_4 sensor_10",
+        "sensor_8 sensor_17",
+        "sensor_9 sensor_16",
+        "sensor_11 sensor_18",
+        "sensor_12 sensor_21"
 ]
 
 control_panel = ControlPanel(rolling_mean=False,
