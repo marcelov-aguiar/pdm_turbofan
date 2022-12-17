@@ -10,3 +10,4 @@ flake8==5.0.4
 autopep8==1.7.0
 mlflow==1.29.0
 optuna==3.0.3
+xgboost==1.7.2
