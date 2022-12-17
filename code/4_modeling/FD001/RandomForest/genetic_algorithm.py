@@ -3,6 +3,7 @@ import numpy as np
 from typing import List
 from sklearn.linear_model import Lasso, LinearRegression
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
 from sklearn.pipeline import Pipeline
@@ -260,8 +261,8 @@ equipment_name = 'FD001'
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=24,
                              use_validation_data=True,
-                             number_units_validation=4,
-                             use_savgol_filter=True)
+                             number_units_validation=10,
+                             use_savgol_filter=False)
 
 logger.info("Lendo os dados de treino.")
 
@@ -327,7 +328,8 @@ def apply_genetic(df_train,
 
     used_columns = list(X_train.columns)
 
-    model_constructor = partial(LinearRegression, fit_intercept=False)
+    model_constructor = partial(RandomForestRegressor,
+                                max_depth=10)
 
     individual_constructor = partial(ga.FeatureSelectionIndividual,
                                      model_constructor=model_constructor,
@@ -338,8 +340,8 @@ def apply_genetic(df_train,
 
     N_PARENTS = 80
     POPULATION_SIZE = 150
-    MIN_GENERATIONS = 100
-    MAX_GENERATIONS = 500
+    MIN_GENERATIONS = 60
+    MAX_GENERATIONS = 80
     AGE_LIMIT = 15
     USE_RECOMBINATION = True
     MUTATION_RATE = 0.05
@@ -383,11 +385,11 @@ def apply_genetic(df_train,
         # percentiles_track = \
         #     percentiles_track.append(generation_percentiles,
         #                              ignore_index=True)
-        age_track = \
-            age_track.append(
-                {'Age':
-                 population.get_oldest_individual().get_age()},
-                ignore_index=True)
+        # age_track = \
+        #     age_track.append(
+        #         {'Age':
+        #          population.get_oldest_individual().get_age()},
+        #         ignore_index=True)
 
     print('\rProcessing finished')
 
@@ -403,116 +405,4 @@ def apply_genetic(df_train,
     # list(zip(used_columns, model.coef_))
     print(used_columns)
 
-# apply_genetic(df_train, df_test, output_model)
-"""
-logger.info("Criando o modelo.")
-mlflow.set_tracking_uri('http://127.0.0.1:5000')
-mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='LassoPoly'):
-    
-    
-
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_train.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_train = df_rolling.copy()
-
-    y_train = df_train[output_model]
-    X_train = df_train[input_model]
-
-    X_train, new_columns = \
-        control_panel.apply_use_savgol_filter(X_train,
-                                              ignore_column='time')
-
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_test.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_test = df_rolling.copy()
-    y_test = df_test[output_model]
-    X_test = df_test[input_model]
-
-    X_test, new_columns = \
-        control_panel.apply_use_savgol_filter(X_test,
-                                              ignore_column='time')
-
-    # poly = PolynomialFeatures()
-    # X_aux = poly.fit_transform(X_test)
-    # df_aux = pd.DataFrame(X_aux,
-    #                       columns=poly.get_feature_names(
-    #                       X_test.columns))
-
-    alpha_best = 1e-09
-
-    model = Lasso(alpha=alpha_best, max_iter=5000)
-    pipeline = Pipeline([("poly", PolynomialFeatures(1)),
-                         ('std', StandardScaler()),
-                         ('regressor', model)])
-
-    model = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
-    logger.info("Treinando o modelo.")
-    model.fit(X_train, y_train)
-
-    y_train_pred = model.predict(X_train)
-
-    df_metrics_train = create_df_metrics(y_train, y_train_pred)
-    logger.info("Salvando as métricas de treino no MLFlow.")
-    save_metrics_mlflow(df_metrics_train, 'train')
-
-    fig = plot_scatter_performance_individual(y_train.values,
-                                              y_train_pred,
-                                              'RUL',
-                                              'Train',
-                                              df_metrics_train)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_train.png')
-
-    fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
-
-
-    y_test_pred = model.predict(X_test)
-    df_metrics_test = create_df_metrics(y_test, y_test_pred)
-    logger.info("Salvando as métricas de teste no MLFlow.")
-    save_metrics_mlflow(df_metrics_test, 'test')
-
-    fig = plot_scatter_performance_individual(y_test.values,
-                                              y_test_pred,
-                                              'RUL',
-                                              'Test',
-                                              df_metrics_test)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_test.png')
-
-    fig = plot_prediction(output_model[0], y_test.values, y_test_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_test.png')
-
-    logger.info("Salvando artefatos no MLFlow.")
-    info_columns = []
-    for column in input_model:
-        info_columns.append(ColSpec(('double'), column))
-    input_schema = Schema(info_columns)
-
-    output_schema = Schema([ColSpec(("double"), output_model[0])])
-    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-
-    mlflow.sklearn.log_model(model,
-                             'TURBOFAN',
-                             signature=signature)
-
-    mlflow.log_param('regressor', model)
-    mlflow.log_param('control panel', control_panel.__dict__)
-
-    logger.info("Salvando coeficientes do modelo.")
-
-    fig = plot_features_importance(model.regressor_['poly'].get_feature_names(input_model),
-                                   model.regressor_['regressor']
-                                   .coef_)
-
-    mlflow.log_figure(fig, artifact_file='feature_importance.png')
-"""
+apply_genetic(df_train, df_test, output_model)

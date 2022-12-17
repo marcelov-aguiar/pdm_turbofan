@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import List
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Lasso, LinearRegression
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
@@ -14,9 +14,10 @@ from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
 import util
-from class_manipulate_data import ManipulateData
 from class_control_panel import ControlPanel
-
+from class_manipulate_data import ManipulateData
+import class_genetic_selection as ga
+from functools import partial
 
 # region: parâmetros necessários para uso do logger
 logger = logging.getLogger(__name__)
@@ -196,6 +197,10 @@ def plot_features_importance(features_name: List[str],
     df_coef["Feature"] = features_name
     df_coef["Coef"] = coef_features
 
+    df_coef["Feature"] = df_coef['Feature'].replace(' ',
+                                                    '*',
+                                                    regex=True)
+
     df_coef = df_coef[df_coef["Coef"] != 0]
     df_coef.sort_values("Coef", inplace=True, ascending=True)
     plt.rcParams['font.size'] = 11
@@ -252,29 +257,11 @@ output_model = ['RUL']
 
 equipment_name = 'FD001'
 
-feature_selection = [
-    "sensor_4",
-    "time^2",
-    "time setting_3",
-    "time sensor_8",
-    "time sensor_12",
-    "time sensor_14",
-    "sensor_2 sensor_11",
-    "sensor_7^2",
-    "sensor_7 sensor_13",
-    "sensor_9 sensor_13",
-    "sensor_11 sensor_14",
-    "sensor_11 sensor_19",
-    "sensor_11 sensor_21",
-    "sensor_14 sensor_21",
-    "sensor_15 sensor_17",
-    "sensor_18 sensor_21"
-]
-
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=24,
                              use_validation_data=True,
-                             number_units_validation=4)
+                             number_units_validation=10,
+                             use_savgol_filter=False)
 
 logger.info("Lendo os dados de treino.")
 
@@ -290,115 +277,130 @@ path_dataset_test = \
 
 df_test = pd.read_csv(path_dataset_test)
 
-if control_panel.use_validation_data:
-    units_quantity = control_panel.number_units_validation
-    units_numbers = df_train['unit_number'].unique()[-4:]
-    for unit_number in units_numbers:
-        df_aux = df_train[df_train['unit_number'] == unit_number].copy()
-        df_train = df_train[~(df_train['unit_number'] == unit_number)]
-        df_aux['unit_number'] = df_aux['unit_number'] + 100
-        df_test = pd.concat([df_test, df_aux], axis=0)
+df_train, df_test = control_panel.apply_use_validation_data(df_train,
+                                                            df_test,
+                                                            'unit_number')
 
-logger.info("Criando o modelo.")
-mlflow.set_tracking_uri('http://127.0.0.1:5000')
-mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='RidgeCV'):
 
-    model = RidgeCV(alphas=np.logspace(-6, 6, 100))
-    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
+def stop_condition(gen_number, population, AGE_LIMIT, MAX_GENERATIONS, MIN_GENERATIONS):
+    return gen_number >= MAX_GENERATIONS or \
+           (gen_number >= MIN_GENERATIONS and
+            population.get_oldest_individual().get_age() >= AGE_LIMIT)
 
-    model = TransformedTargetRegressor(regressor=pipeline,
-                                       transformer=StandardScaler())
 
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_train.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_train = df_rolling.copy()
-
-    y_train = df_train[output_model]
-    X_train = df_train[input_model]
-
+def apply_genetic(df_train,
+                  df_test,
+                  output_model,
+                  exclude_columns=['unit_number']+output_model):
+    # pipeline = Pipeline([("poly", PolynomialFeatures()),
+    #                      ('std', StandardScaler())])
+    # aplicar aos dados poly e scaler
     poly = PolynomialFeatures(2)
-    X_aux = poly.fit_transform(X_train)
-    X_train = pd.DataFrame(X_aux,
+    sclin = StandardScaler()
+    sclout = StandardScaler()
+
+    X_train = df_train.drop(exclude_columns, axis=1)
+    X_train = poly.fit_transform(X_train)
+    X_train = sclin.fit_transform(X_train)
+    X_train = pd.DataFrame(X_train,
                            columns=poly.get_feature_names(
-                           input_model))
-    X_train = X_train[feature_selection]
+                            df_train.drop(exclude_columns,
+                                          axis=1).columns))
 
-    logger.info("Treinando o modelo.")
-    model.fit(X_train, y_train)
+    X_test = df_test.drop(exclude_columns, axis=1)
+    X_test = poly.transform(X_test)
+    X_test = sclin.transform(X_test)
+    X_test = pd.DataFrame(X_test,
+                          columns=poly.get_feature_names(
+                            df_train.drop(exclude_columns,
+                                          axis=1).columns))
+    
+    Y_train = df_train[output_model]
+    Y_train = sclout.fit_transform(Y_train)
+    Y_train = pd.DataFrame(Y_train, columns=[output_model],
+                           index=df_train.index)
 
-    y_train_pred = model.predict(X_train)
+    Y_test = df_test[output_model]
+    Y_test = sclout.transform(Y_test)
+    Y_test = pd.DataFrame(Y_test, columns=[output_model],
+                          index=df_test.index)
 
-    df_metrics_train = create_df_metrics(y_train, y_train_pred)
-    logger.info("Salvando as métricas de treino no MLFlow.")
-    save_metrics_mlflow(df_metrics_train, 'train')
+    used_columns = list(X_train.columns)
 
-    fig = plot_scatter_performance_individual(y_train.values,
-                                              y_train_pred,
-                                              'RUL',
-                                              'Train',
-                                              df_metrics_train)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_train.png')
+    model_constructor = partial(LinearRegression, fit_intercept=False)
 
-    fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
+    individual_constructor = partial(ga.FeatureSelectionIndividual,
+                                     model_constructor=model_constructor,
+                                     possible_features=X_train.columns,
+                                     past_scores_to_keep=10,
+                                     extra_feature_penalty=0.0003,
+                                     features_without_penalty=15)
 
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_test.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_test = df_rolling.copy()
-    y_test = df_test[output_model]
-    X_test = df_test[input_model]
+    N_PARENTS = 80
+    POPULATION_SIZE = 150
+    MIN_GENERATIONS = 100
+    MAX_GENERATIONS = 500
+    AGE_LIMIT = 15
+    USE_RECOMBINATION = True
+    MUTATION_RATE = 0.05
 
-    X_aux = poly.transform(X_test)
-    X_test = pd.DataFrame(X_aux,
-                           columns=poly.get_feature_names(
-                           input_model))
-    X_test = X_test[feature_selection]
+    percentiles = [100, 75, 50, 25, 0]
 
-    y_test_pred = model.predict(X_test)
-    df_metrics_test = create_df_metrics(y_test, y_test_pred)
-    logger.info("Salvando as métricas de teste no MLFlow.")
-    save_metrics_mlflow(df_metrics_test, 'test')
 
-    fig = plot_scatter_performance_individual(y_test.values,
-                                              y_test_pred,
-                                              'RUL',
-                                              'Test',
-                                              df_metrics_test)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_test.png')
+    percentiles_track = pd.DataFrame(columns=list(map(str, percentiles)))
+    percentiles_track.index.name = 'Generation'
+    age_track = pd.DataFrame(columns=['Age'])
+    age_track.index.name = 'Generation'
 
-    fig = plot_prediction(output_model[0], y_test.values, y_test_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_test.png')
+    population = ga.Population(individual_constructor,
+                                POPULATION_SIZE,
+                                N_PARENTS,
+                                USE_RECOMBINATION,
+                                MUTATION_RATE)
+    population.set_data(X_train, Y_train)
+    population.fit()
 
-    logger.info("Salvando artefatos no MLFlow.")
-    info_columns = []
-    for column in input_model:
-        info_columns.append(ColSpec(('double'), column))
-    input_schema = Schema(info_columns)
+    g = 0
+    while not stop_condition(g, population, AGE_LIMIT, MAX_GENERATIONS, MIN_GENERATIONS):
+        print(f'\rProcessing generation {g + 1}', end='')
 
-    output_schema = Schema([ColSpec(("double"), output_model[0])])
-    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+        population.select_parents()
+        population.reproduce()
+        population.mutate()
+        population.join_generation()
+        population.fit()
+        g += 1
 
-    mlflow.sklearn.log_model(model,
-                             'TURBOFAN',
-                             signature=signature)
+        generation_percentiles = \
+            population.get_fitness_percentiles(percentiles)
 
-    # mlflow.log_param('regressor', model)
-    mlflow.log_param('control panel', control_panel.__dict__)
+        aux = pd.DataFrame(generation_percentiles,
+                           columns=list(generation_percentiles.keys()),
+                           index=[0])
 
-    logger.info("Salvando coeficientes do modelo.")
+        percentiles_track = \
+            pd.concat([percentiles_track, aux]).reset_index().drop(columns=['index'])
+        # percentiles_track = \
+        #     percentiles_track.append(generation_percentiles,
+        #                              ignore_index=True)
+        # age_track = \
+        #     age_track.append(
+        #         {'Age':
+        #          population.get_oldest_individual().get_age()},
+        #         ignore_index=True)
 
-    fig = plot_features_importance(feature_selection,
-                                   model.regressor_['regressor']
-                                   .coef_)
+    print('\rProcessing finished')
 
-    mlflow.log_figure(fig, artifact_file='feature_importance.png')
+    best_individual = population.get_best_individual()
+    oldest_individual = population.get_oldest_individual()
+    model = oldest_individual.get_model()
+    used_columns = oldest_individual.get_used_features()
+    print(f'Best individual age: {best_individual.get_age()}')
+    print(f'Oldest individual age: {oldest_individual.get_age()}')
+    print(f'Selected {len(used_columns)} out of + '
+          f'{len(X_train.columns)} possible features')
+    print('Used features (with correspondent coefficient):')
+    # list(zip(used_columns, model.coef_))
+    print(used_columns)
+
+apply_genetic(df_train, df_test, output_model)
