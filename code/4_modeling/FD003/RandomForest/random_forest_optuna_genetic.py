@@ -279,15 +279,25 @@ equipment_name = 'FD003'
 
 feature_selection = [
     
-        "time sensor_10",
-        "time sensor_15",
-        "time sensor_20",
-        "sensor_1 sensor_7",
-        "sensor_4 sensor_10",
-        "sensor_8 sensor_17",
+        "sensor_13",
+        "time^2",
+        "time sensor_14",
+        "time sensor_19",
+        "setting_3 sensor_4",
+        "setting_3 sensor_11",
+        "setting_3 sensor_17",
+        "sensor_3 sensor_12",
+        "sensor_4 sensor_9",
+        "sensor_4 sensor_11",
+        "sensor_5 sensor_13",
+        "sensor_8 sensor_11",
+        "sensor_8 sensor_16",
+        "sensor_9 sensor_14",
         "sensor_9 sensor_16",
-        "sensor_11 sensor_18",
-        "sensor_12 sensor_21"
+        "sensor_9 sensor_17",
+        "sensor_14 sensor_17",
+        "sensor_14 sensor_18",
+        "sensor_20 sensor_21"
 ]
 
 control_panel = ControlPanel(rolling_mean=False,
@@ -353,7 +363,7 @@ with mlflow.start_run(run_name='RandomForest'):
     if control_panel.use_optuna:
         objective = Objective(model, X_train, y_train)
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=100)
+        study.optimize(objective, n_trials=50)
 
         best_params = study.best_trial.params
 
