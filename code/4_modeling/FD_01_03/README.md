@@ -1,0 +1,1 @@
+Nesse experimento os dados do equipamento FD001 e FD003 foram usados para o treino do modelo. Porém, apenas os dados do equipamento FD001 foram usados para o teste.
