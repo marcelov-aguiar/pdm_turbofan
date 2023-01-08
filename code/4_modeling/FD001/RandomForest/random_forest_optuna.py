@@ -283,7 +283,7 @@ equipment_name = 'FD001'
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=12,
                              is_grid_search=False,
-                             use_validation_data=True,
+                             use_validation_data=False,
                              use_optuna=True,
                              number_units_validation=10)
 
@@ -293,6 +293,7 @@ path_dataset_train = \
     str(path_preprocessing_output.joinpath(f"train_{equipment_name}.csv"))
 
 df_train = pd.read_csv(path_dataset_train)
+df_train['RUL'][df_train['RUL'] > 125] = 125
 
 logger.info("Lendo os dados de teste.")
 
@@ -300,6 +301,13 @@ path_dataset_test = \
     str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
 
 df_test = pd.read_csv(path_dataset_test)
+df_test['RUL'][df_test['RUL'] > 125] = 125
+# df_test_cycle = df_test.groupby(['unit_number']).agg({'time':'max'})
+# df_test_cycle.rename(columns={'time':'life'},inplace=True)
+# df_test_max = df_test.merge(df_test_cycle,how='left',on=['unit_number'])
+# df_test_max = df_test_max[(df_test_max['time']==df_test_max['life'])]
+# df_test_max.drop(['life'],axis=1,inplace=True)
+# df_test = df_test_max.copy()
 
 if control_panel.use_validation_data:
     units_quantity = control_panel.number_units_validation

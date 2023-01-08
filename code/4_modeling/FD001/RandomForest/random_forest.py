@@ -285,7 +285,7 @@ logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
 with mlflow.start_run(run_name='RandomForest'):
-    model = RandomForestRegressor(max_depth=8)
+    model = RandomForestRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
     model = TransformedTargetRegressor(regressor=pipeline,
