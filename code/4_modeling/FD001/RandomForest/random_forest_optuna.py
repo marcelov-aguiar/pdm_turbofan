@@ -293,7 +293,7 @@ path_dataset_train = \
     str(path_preprocessing_output.joinpath(f"train_{equipment_name}.csv"))
 
 df_train = pd.read_csv(path_dataset_train)
-df_train['RUL'][df_train['RUL'] > 125] = 125
+df_train['RUL'][df_train['RUL'] > 200] = 200
 
 logger.info("Lendo os dados de teste.")
 
@@ -301,7 +301,7 @@ path_dataset_test = \
     str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
 
 df_test = pd.read_csv(path_dataset_test)
-df_test['RUL'][df_test['RUL'] > 125] = 125
+df_test['RUL'][df_test['RUL'] > 200] = 200
 # df_test_cycle = df_test.groupby(['unit_number']).agg({'time':'max'})
 # df_test_cycle.rename(columns={'time':'life'},inplace=True)
 # df_test_max = df_test.merge(df_test_cycle,how='left',on=['unit_number'])
