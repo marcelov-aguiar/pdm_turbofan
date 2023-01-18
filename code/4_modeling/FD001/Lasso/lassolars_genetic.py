@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
 from typing import List
-from lightgbm import LGBMRegressor
+from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-from sklearn.model_selection import cross_val_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import seaborn as sns
 from sklearn.pipeline import Pipeline
@@ -14,11 +13,9 @@ import mlflow
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 import logging
-import optuna
 import util
-from class_manipulate_data import ManipulateData
 from class_control_panel import ControlPanel
-
+from class_manipulate_data import ManipulateData
 
 # region: parâmetros necessários para uso do logger
 logger = logging.getLogger(__name__)
@@ -235,39 +232,14 @@ def save_metrics_mlflow(df_metrics: pd.DataFrame,
                           df_metrics[metric_name][0])
 
 
-class Objective():
-    def __init__(self, model, X_train, y_train) -> None:
-        self.model = model
-        self.X_train = X_train
-        self.y_train = y_train
-    
-    def __call__(self, trial):
-        param_grid = {
-            "regressor__regressor__max_depth":
-            trial.suggest_int("regressor__regressor__max_depth", 4, 10),
-
-            "regressor__regressor__n_estimators": 
-            trial.suggest_int("regressor__regressor__n_estimators", 10, 200),
-
-            "regressor__regressor__boosting_type":
-            trial.suggest_categorical("regressor__regressor__boosting_type", ["gbdt",
-                                                                              "dart",
-                                                                              "goss"])
-        }
-
-        self.model.set_params(**param_grid)
-
-        return cross_val_score(self.model, self.X_train, self.y_train, n_jobs=-1, cv=3).mean()
-
-
 logger.info("Definindo as entradas, a saída e o equipamento.")
-# features selecionadas pela variância
+# # features selecionadas pela variância
 # input_model = ['setting_1', 'setting_2', 'sensor_2', 'sensor_3',
 #                'sensor_4', 'sensor_7', 'sensor_8', 'sensor_9',
 #                'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14',
 #                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
-# # todas as entradas
+# todas as entradas
 input_model = ['time',
     'setting_1', 'setting_2', 'setting_3',
     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
@@ -289,25 +261,22 @@ WINDOW_MEAN = 12
 LENGHT_ROI = 150
 
 feature_selection = [
-        "time^2",
-        "time sensor_7",
-        "time sensor_11",
-        "time sensor_14",
-        "sensor_1 sensor_4",
-        "sensor_2 sensor_16",
-        "sensor_4 sensor_14",
-        "sensor_7 sensor_11",
-        "sensor_7 sensor_13",
-        "sensor_8 sensor_20",
-        "sensor_9 sensor_21",
-        "sensor_11 sensor_14",
-        "sensor_11 sensor_16",
-        "sensor_12 sensor_13",
-        "sensor_13 sensor_19",
-        "sensor_14 sensor_15",
-        "sensor_14 sensor_19",
-        "sensor_16 sensor_21",
-        "sensor_19 sensor_20"
+    "sensor_4",
+    "time^2",
+    "time setting_3",
+    "time sensor_8",
+    "time sensor_12",
+    "time sensor_14",
+    "sensor_2 sensor_11",
+    "sensor_7^2",
+    "sensor_7 sensor_13",
+    "sensor_9 sensor_13",
+    "sensor_11 sensor_14",
+    "sensor_11 sensor_19",
+    "sensor_11 sensor_21",
+    "sensor_14 sensor_21",
+    "sensor_15 sensor_17",
+    "sensor_18 sensor_21"
 ]
 
 control_panel = ControlPanel(rolling_mean=False,
@@ -315,8 +284,7 @@ control_panel = ControlPanel(rolling_mean=False,
                              use_validation_data=True,
                              number_units_validation=DATA_MOVE,
                              use_savgol_filter=False,
-                             use_roi=True,
-                             use_optuna=False)
+                             use_roi=True)
 
 logger.info("Lendo os dados de treino.")
 
@@ -340,14 +308,8 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='LGBMRegressor'):
-    model = LGBMRegressor()
-    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
-
-    pipeline = TransformedTargetRegressor(regressor=pipeline,
-                                          transformer=StandardScaler())
-    model = pipeline
-
+with mlflow.start_run(run_name='Lasso'):
+    
     df_train = control_panel.apply_rolling_mean(df_train, 'unit_number')
 
     y_train = df_train[output_model]
@@ -357,28 +319,29 @@ with mlflow.start_run(run_name='LGBMRegressor'):
         control_panel.apply_use_savgol_filter(X_train,
                                               ignore_column='time')
 
+    df_test = control_panel.apply_rolling_mean(df_test, 'unit_number')
+
+    y_test = df_test[output_model]
+    X_test = df_test[input_model]
+
+    X_test = \
+        control_panel.apply_use_savgol_filter(X_test,
+                                              ignore_column='time')
+
+    alpha_best = 0.05
+
+    model = Lasso(alpha=alpha_best, max_iter=5000)
+    pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
+
+    model = TransformedTargetRegressor(regressor=pipeline,
+                                       transformer=StandardScaler())
+
     poly = PolynomialFeatures(2)
     X_aux = poly.fit_transform(X_train)
     X_train = pd.DataFrame(X_aux,
                            columns=poly.get_feature_names(
                            input_model))
     X_train = X_train[feature_selection]
-
-    if control_panel.use_optuna:
-        objective = Objective(model, X_train, y_train)
-        study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=100)
-
-        best_params = study.best_trial.params
-
-        model = LGBMRegressor()
-        pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
-
-        pipeline = TransformedTargetRegressor(regressor=pipeline,
-                                           transformer=StandardScaler())
-        model = pipeline
-
-        model.set_params(**best_params)
 
     logger.info("Treinando o modelo.")
     model.fit(X_train, y_train)
@@ -398,15 +361,6 @@ with mlflow.start_run(run_name='LGBMRegressor'):
 
     fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
     mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
-
-    df_test = control_panel.apply_rolling_mean(df_test, 'unit_number')
-
-    y_test = df_test[output_model]
-    X_test = df_test[input_model]
-
-    X_test = \
-        control_panel.apply_use_savgol_filter(X_test,
-                                              ignore_column='time')
 
     X_aux = poly.transform(X_test)
     X_test = pd.DataFrame(X_aux,
@@ -442,12 +396,13 @@ with mlflow.start_run(run_name='LGBMRegressor'):
                              'TURBOFAN',
                              signature=signature)
 
-    mlflow.log_param('regressor', model.__str__())
+    # mlflow.log_param('regressor', model)
     mlflow.log_param('control panel', control_panel.__dict__)
 
     logger.info("Salvando coeficientes do modelo.")
+
     fig = plot_features_importance(feature_selection,
                                    model.regressor_['regressor']
-                                   .feature_importances_)
+                                   .coef_)
 
     mlflow.log_figure(fig, artifact_file='feature_importance.png')
