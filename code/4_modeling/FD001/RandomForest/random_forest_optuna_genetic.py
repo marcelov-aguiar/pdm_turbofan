@@ -309,7 +309,7 @@ control_panel = ControlPanel(rolling_mean=False,
                              window_mean=WINDOW_MEAN,
                              use_validation_data=True,
                              number_units_validation=DATA_MOVE,
-                             use_optuna=False,
+                             use_optuna=True,
                              use_savgol_filter=False,
                              use_roi=True)
 
@@ -335,7 +335,7 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='RandomForest'):
+with mlflow.start_run(run_name='RandomForest_roi_poly'):
     model = RandomForestRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 

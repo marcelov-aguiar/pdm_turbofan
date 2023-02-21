@@ -53,3 +53,8 @@ autopep8 --in-place --aggressive --aggressive <filename>
 Necessário alterar a constante `MAX_PARAM_VAL_LENGTH` para o valor igual a 1000. Essa alteração permite salvar uma string maior nos parâmetros do MLFlow. A constante se localiza no seguinte arquivo: \Lib\site-packages\mlflow\utils\validation.py
 
 
+## PyCaret
+O PyCaret foi utilizado apenas para listar os melhores modelos a serem experimentados na etapa de modelagem. Para executar o notebook com script do PyCaret se localiza em `code\4_modeling\2_pycaret.ipynb`. Para executá-lo é necessário instalar a seguinte versão da biblioteca:
+```
+pip install pycaret==2.3.10
+```

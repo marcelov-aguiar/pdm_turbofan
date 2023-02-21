@@ -264,7 +264,7 @@ control_panel = ControlPanel(rolling_mean=False,
                              window_mean=WINDOW_MEAN,
                              use_validation_data=True,
                              number_units_validation=DATA_MOVE,
-                             use_savgol_filter=True,
+                             use_savgol_filter=False,
                              use_roi=True)
 
 logger.info("Lendo os dados de treino.")
@@ -289,7 +289,7 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='Lasso'):
+with mlflow.start_run(run_name='Lasso_roi'):
     
     df_train = control_panel.apply_rolling_mean(df_train, 'unit_number')
 
@@ -309,7 +309,7 @@ with mlflow.start_run(run_name='Lasso'):
         control_panel.apply_use_savgol_filter(X_test,
                                               ignore_column='time')
 
-    alpha_best = 0.05
+    alpha_best = 0.01
 
     model = Lasso(alpha=alpha_best, max_iter=5000)
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])

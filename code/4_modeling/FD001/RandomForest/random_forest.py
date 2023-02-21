@@ -241,7 +241,7 @@ logger.info("Definindo as entradas, a saída e o equipamento.")
 #                'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
 
 # todas as entradas
-input_model = ['time',
+input_model = [
     'setting_1', 'setting_2', 'setting_3',
     'sensor_1', 'sensor_2', 'sensor_3', 'sensor_4', 'sensor_5', 'sensor_6',
     'sensor_7', 'sensor_8', 'sensor_9', 'sensor_10', 'sensor_11',
@@ -263,10 +263,10 @@ LENGHT_ROI = 150
 
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=WINDOW_MEAN,
-                             use_validation_data=True,
+                             use_validation_data=False,
                              number_units_validation=DATA_MOVE,
                              use_savgol_filter=False,
-                             use_roi=True)
+                             use_roi=False)
 
 logger.info("Lendo os dados de treino.")
 
@@ -291,7 +291,7 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='RandomForest'):
+with mlflow.start_run(run_name='RandomForest_baseline'):
     model = RandomForestRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 

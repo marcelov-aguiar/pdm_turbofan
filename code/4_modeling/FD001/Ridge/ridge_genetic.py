@@ -309,7 +309,7 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='RidgeCV'):
+with mlflow.start_run(run_name='RidgeCV_roi_poly'):
 
     model = RidgeCV(alphas=np.logspace(-6, 6, 100))
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
