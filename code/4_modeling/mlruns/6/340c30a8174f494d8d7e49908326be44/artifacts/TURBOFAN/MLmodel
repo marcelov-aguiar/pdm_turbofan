@@ -1,0 +1,32 @@
+artifact_path: TURBOFAN
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.8.9
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 0.23.2
+mlflow_version: 1.29.0
+model_uuid: bd2cf196f5294186a5207ecb411bf0dc
+run_id: 340c30a8174f494d8d7e49908326be44
+signature:
+  inputs: '[{"name": "time", "type": "double"}, {"name": "setting_1_savgol", "type":
+    "double"}, {"name": "setting_2_savgol", "type": "double"}, {"name": "setting_3_savgol",
+    "type": "double"}, {"name": "sensor_1_savgol", "type": "double"}, {"name": "sensor_2_savgol",
+    "type": "double"}, {"name": "sensor_3_savgol", "type": "double"}, {"name": "sensor_4_savgol",
+    "type": "double"}, {"name": "sensor_5_savgol", "type": "double"}, {"name": "sensor_6_savgol",
+    "type": "double"}, {"name": "sensor_7_savgol", "type": "double"}, {"name": "sensor_8_savgol",
+    "type": "double"}, {"name": "sensor_9_savgol", "type": "double"}, {"name": "sensor_10_savgol",
+    "type": "double"}, {"name": "sensor_11_savgol", "type": "double"}, {"name": "sensor_12_savgol",
+    "type": "double"}, {"name": "sensor_13_savgol", "type": "double"}, {"name": "sensor_14_savgol",
+    "type": "double"}, {"name": "sensor_15_savgol", "type": "double"}, {"name": "sensor_16_savgol",
+    "type": "double"}, {"name": "sensor_17_savgol", "type": "double"}, {"name": "sensor_18_savgol",
+    "type": "double"}, {"name": "sensor_19_savgol", "type": "double"}, {"name": "sensor_20_savgol",
+    "type": "double"}, {"name": "sensor_21_savgol", "type": "double"}]'
+  outputs: '[{"name": "RUL", "type": "double"}]'
+utc_time_created: '2023-02-21 22:03:13.223283'

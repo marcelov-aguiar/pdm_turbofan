@@ -263,10 +263,10 @@ LENGHT_ROI = 150
 
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=WINDOW_MEAN,
-                             use_validation_data=True,
+                             use_validation_data=False,
                              number_units_validation=DATA_MOVE,
                              use_savgol_filter=False,
-                             use_roi=True)
+                             use_roi=False)
 
 logger.info("Lendo os dados de treino.")
 
@@ -291,7 +291,7 @@ df_train, df_test = \
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment('FD001')
-with mlflow.start_run(run_name='LGBMRegressor'):
+with mlflow.start_run(run_name='LGBMRegressor_baseline'):
     model = LGBMRegressor(max_depth=8)
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
