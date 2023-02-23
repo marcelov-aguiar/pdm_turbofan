@@ -317,7 +317,7 @@ df_train, df_test = \
 
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
-mlflow.set_experiment('FD001')
+mlflow.set_experiment(equipment_name)
 with mlflow.start_run(run_name='LGBMRegressor_roi'):
     model = LGBMRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
