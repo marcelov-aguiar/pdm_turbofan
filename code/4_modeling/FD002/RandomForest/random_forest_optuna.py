@@ -280,12 +280,22 @@ output_model = ['RUL']
 
 equipment_name = 'FD002'
 
+# porcentagem dos dados treino que são movidos para teste
+DATA_MOVE = 4
+
+# tamanho da janela para calcular a media movel
+WINDOW_MEAN = 12
+
+# tamanho da região de interesse (RUL abaixo de LENGHT_ROI)
+LENGHT_ROI = 150
+
 control_panel = ControlPanel(rolling_mean=False,
-                             window_mean=12,
-                             is_grid_search=False,
+                             window_mean=WINDOW_MEAN,
                              use_validation_data=True,
+                             number_units_validation=DATA_MOVE,
+                             use_savgol_filter=False,
                              use_optuna=True,
-                             number_units_validation=10)
+                             use_roi=True)
 
 logger.info("Lendo os dados de treino.")
 
@@ -293,6 +303,7 @@ path_dataset_train = \
     str(path_preprocessing_output.joinpath(f"train_{equipment_name}.csv"))
 
 df_train = pd.read_csv(path_dataset_train)
+df_train = control_panel.apply_roi(df_train, output_model[0], LENGHT_ROI)
 
 logger.info("Lendo os dados de teste.")
 
@@ -300,20 +311,15 @@ path_dataset_test = \
     str(path_preprocessing_output.joinpath(f"test_{equipment_name}.csv"))
 
 df_test = pd.read_csv(path_dataset_test)
+df_test = control_panel.apply_roi(df_test, output_model[0], LENGHT_ROI)
 
-if control_panel.use_validation_data:
-    units_quantity = control_panel.number_units_validation
-    units_numbers = df_train['unit_number'].unique()[-4:]
-    for unit_number in units_numbers:
-        df_aux = df_train[df_train['unit_number'] == unit_number].copy()
-        df_train = df_train[~(df_train['unit_number'] == unit_number)]
-        df_aux['unit_number'] = df_aux['unit_number'] + 100
-        df_test = pd.concat([df_test, df_aux], axis=0)
+df_train, df_test = \
+    control_panel.apply_use_validation_data(df_train, df_test, 'unit_number')
 
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
 mlflow.set_experiment(equipment_name)
-with mlflow.start_run(run_name='RandomForest'):
+with mlflow.start_run(run_name='RandomForest_roi'):
     model = RandomForestRegressor()
     pipeline = Pipeline([('std', StandardScaler()), ('regressor', model)])
 
@@ -321,17 +327,14 @@ with mlflow.start_run(run_name='RandomForest'):
                                           transformer=StandardScaler())
     model = pipeline
 
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_train.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_train = df_rolling.copy()
+    df_train = control_panel.apply_rolling_mean(df_train, 'unit_number')
 
     y_train = df_train[output_model]
     X_train = df_train[input_model]
+
+    X_train = \
+        control_panel.apply_use_savgol_filter(X_train,
+                                              ignore_column='time')
 
     if control_panel.use_optuna:
         objective = Objective(model, X_train, y_train)
@@ -368,15 +371,14 @@ with mlflow.start_run(run_name='RandomForest'):
     fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
     mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
 
-    if control_panel.rolling_mean:
-        df_rolling = \
-            df_test.groupby('unit_number').rolling(
-                window=control_panel.window_mean).mean()
-        df_rolling = df_rolling.dropna()
-        df_rolling = df_rolling.reset_index()
-        df_test = df_rolling.copy()
+    df_test = control_panel.apply_rolling_mean(df_test, 'unit_number')
+
     y_test = df_test[output_model]
     X_test = df_test[input_model]
+
+    X_test = \
+        control_panel.apply_use_savgol_filter(X_test,
+                                              ignore_column='time')
 
     y_test_pred = model.predict(X_test)
     df_metrics_test = create_df_metrics(y_test, y_test_pred)

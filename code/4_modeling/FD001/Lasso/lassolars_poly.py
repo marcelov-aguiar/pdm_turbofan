@@ -287,7 +287,7 @@ if control_panel.use_validation_data:
 
 logger.info("Criando o modelo.")
 mlflow.set_tracking_uri('http://127.0.0.1:5000')
-mlflow.set_experiment('FD001')
+mlflow.set_experiment(equipment_name)
 with mlflow.start_run(run_name='LassoPoly'):
     
 
