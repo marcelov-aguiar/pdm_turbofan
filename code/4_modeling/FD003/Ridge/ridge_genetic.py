@@ -259,7 +259,7 @@ DATA_MOVE = 4
 WINDOW_MEAN = 12
 
 # tamanho da região de interesse (RUL abaixo de LENGHT_ROI)
-LENGHT_ROI = 150
+LENGHT_ROI = 125
 
 feature_selection = [
     "setting_3 sensor_3",
@@ -340,6 +340,14 @@ with mlflow.start_run(run_name='RidgeCV_roi_poly'):
 
     y_train_pred = model.predict(X_train)
 
+    if control_panel.use_roi:
+        X_train['REAL'] = y_train.values
+        X_train['PREDITO'] = y_train_pred
+        X_train = X_train[~(X_train['REAL'] == LENGHT_ROI)]
+        y_train = X_train['REAL']
+        y_train_pred = X_train['PREDITO'].values
+        X_train = X_train.drop(columns=['REAL', 'PREDITO'])
+
     df_metrics_train = create_df_metrics(y_train, y_train_pred)
     logger.info("Salvando as métricas de treino no MLFlow.")
     save_metrics_mlflow(df_metrics_train, 'train')
@@ -370,6 +378,15 @@ with mlflow.start_run(run_name='RidgeCV_roi_poly'):
     X_test = X_test[feature_selection]
 
     y_test_pred = model.predict(X_test)
+
+    if control_panel.use_roi:
+        X_test['REAL'] = y_test.values
+        X_test['PREDITO'] = y_test_pred
+        X_test = X_test[~(X_test['REAL'] == LENGHT_ROI)]
+        y_test = X_test['REAL']
+        y_test_pred = X_test['PREDITO'].values
+        X_test = X_test.drop(columns=['REAL', 'PREDITO'])
+
     df_metrics_test = create_df_metrics(y_test, y_test_pred)
     logger.info("Salvando as métricas de teste no MLFlow.")
     save_metrics_mlflow(df_metrics_test, 'test')

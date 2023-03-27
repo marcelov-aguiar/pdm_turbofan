@@ -164,17 +164,17 @@ def plot_prediction(name_output: pd.DataFrame,
     plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize=(25, 6.7))
     ax.set_title(f'Prediction Real x Pred - {title}')
-    ax.set_xlabel('Cycle')
+    ax.set_xlabel('Ciclos')
     ax.set_ylabel(f'{name_output}')
 
     ax.plot(y_real,
             'o', color='royalblue', label='Real')
 
     ax.plot(y_pred,
-            'o--', color='firebrick', label='Predicted', linewidth=2)
+            'o--', color='firebrick', label='Predito', linewidth=2)
 
     ax.legend(ncol=2)
-
+    ax.set_xlim(-10,1115)
     return fig
 
 
@@ -210,6 +210,7 @@ def plot_features_importance(features_name: List[str],
              color='maroon')
 
     plt.title('Coeficientes Modelo')
+    plt.xlabel('Pesos')
     plt.yticks(rotation=45)
 
     return fig
@@ -286,7 +287,7 @@ DATA_MOVE = 4
 WINDOW_MEAN = 12
 
 # tamanho da região de interesse (RUL abaixo de LENGHT_ROI)
-LENGHT_ROI = 150
+LENGHT_ROI = 125
 
 control_panel = ControlPanel(rolling_mean=False,
                              window_mean=WINDOW_MEAN,
@@ -356,6 +357,14 @@ with mlflow.start_run(run_name='LGBMRegressor_roi'):
 
     y_train_pred = model.predict(X_train)
 
+    if control_panel.use_roi:
+        X_train['REAL'] = y_train.values
+        X_train['PREDITO'] = y_train_pred
+        X_train = X_train[~(X_train['REAL'] == LENGHT_ROI)]
+        y_train = X_train['REAL']
+        y_train_pred = X_train['PREDITO'].values
+        X_train = X_train.drop(columns=['REAL', 'PREDITO'])
+
     df_metrics_train = create_df_metrics(y_train, y_train_pred)
     logger.info("Salvando as métricas de treino no MLFlow.")
     save_metrics_mlflow(df_metrics_train, 'train')
@@ -380,6 +389,15 @@ with mlflow.start_run(run_name='LGBMRegressor_roi'):
                                               ignore_column='time')
 
     y_test_pred = model.predict(X_test)
+
+    if control_panel.use_roi:
+        X_test['REAL'] = y_test.values
+        X_test['PREDITO'] = y_test_pred
+        X_test = X_test[~(X_test['REAL'] == LENGHT_ROI)]
+        y_test = X_test['REAL']
+        y_test_pred = X_test['PREDITO'].values
+        X_test = X_test.drop(columns=['REAL', 'PREDITO'])
+
     df_metrics_test = create_df_metrics(y_test, y_test_pred)
     logger.info("Salvando as métricas de teste no MLFlow.")
     save_metrics_mlflow(df_metrics_test, 'test')
