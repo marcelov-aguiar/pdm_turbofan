@@ -12,8 +12,8 @@ flavors:
     serialization_format: cloudpickle
     sklearn_version: 0.23.2
 mlflow_version: 1.29.0
-model_uuid: d71d4b9548ec4a248022e25bbde26259
-run_id: f04828995f3a4031824ea85689bcbacc
+model_uuid: c55c1bce3f244e91900193d7e78df572
+run_id: 60c746da526b4521a7dd6ae3dfb514e6
 signature:
   inputs: '[{"name": "time", "type": "double"}, {"name": "setting_1", "type": "double"},
     {"name": "setting_2", "type": "double"}, {"name": "setting_3", "type": "double"},
@@ -29,4 +29,4 @@ signature:
     {"name": "sensor_19", "type": "double"}, {"name": "sensor_20", "type": "double"},
     {"name": "sensor_21", "type": "double"}]'
   outputs: '[{"name": "RUL", "type": "double"}]'
-utc_time_created: '2023-03-27 02:42:00.842456'
+utc_time_created: '2023-03-29 20:27:38.335971'

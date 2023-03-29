@@ -164,17 +164,17 @@ def plot_prediction(name_output: pd.DataFrame,
     plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize=(25, 6.7))
     ax.set_title(f'Prediction Real x Pred - {title}')
-    ax.set_xlabel('Cycle')
+    ax.set_xlabel('Ciclos')
     ax.set_ylabel(f'{name_output}')
 
     ax.plot(y_real,
             'o', color='royalblue', label='Real')
 
     ax.plot(y_pred,
-            'o--', color='firebrick', label='Predicted', linewidth=2)
+            'o--', color='firebrick', label='Predito', linewidth=2)
 
     ax.legend(ncol=2)
-
+    ax.set_xlim(-10,1115)
     return fig
 
 
@@ -210,6 +210,7 @@ def plot_features_importance(features_name: List[str],
              color='maroon')
 
     plt.title('Coeficientes Modelo')
+    plt.xlabel('Pesos')
     plt.yticks(rotation=45)
 
     return fig
