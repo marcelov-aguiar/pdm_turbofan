@@ -13,7 +13,21 @@ def init()-> str:
     module_name = Path(__file__).stem 
     return (f"Módulo {module_name} importado com sucesso.")
 
-def search_module(module_name: str) -> Path:
+def search_module(module_name: str = "util") -> Path:
+    """Responsável por procurar o arquivo `__base{module_name}__`.
+    Este arquivo diz onde estão os arquivos principais do projeto
+    que incluem a localização de todos os arquivos.
+
+    Parameters
+    ----------
+    module_name : str
+        Nome do módulo a ser importado.
+
+    Returns
+    -------
+    Path
+        Caminho com a localização dos módulos.
+    """
     path_search = Path(__file__).parent
     was_found = False
     while not was_found:

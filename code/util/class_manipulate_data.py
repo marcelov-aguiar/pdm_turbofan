@@ -77,3 +77,14 @@ class ManipulateData():
                          "sensor_16", "sensor_17", "sensor_18", "sensor_19",
                          "sensor_20", "sensor_21"]
         return features_name
+    
+    def get_path_img(self) -> Path:
+        """Reponsável por retornar o caminho onde estão salvas as imagens
+        importantes do projeto
+
+        Returns
+        -------
+            Path
+                Caminho onde se localiza as imagens usada no texto final do projeto.
+        """
+        return path_manipulate_data.parent.joinpath("img")
