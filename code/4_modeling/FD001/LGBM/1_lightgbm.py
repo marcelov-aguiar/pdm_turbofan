@@ -16,6 +16,7 @@ import logging
 import util
 from class_manipulate_data import ManipulateData
 from class_control_panel import ControlPanel
+import os
 
 
 # region: parâmetros necessários para uso do logger
@@ -32,6 +33,7 @@ logger.info(util.init())
 
 manipulate_data = ManipulateData()
 path_preprocessing_output = manipulate_data.get_path_preprocessing_output()
+path_mlflow = str(manipulate_data.get_path_mlflow())
 
 
 def root_mean_squared_error(y_true: pd.Series, y_pred: pd.Series) -> float:
@@ -161,17 +163,18 @@ def plot_prediction(name_output: pd.DataFrame,
     """
     plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize=(25, 6.7))
-    ax.set_title(f'Prediction Real x Pred - {title}')
-    ax.set_xlabel('Ciclos')
-    ax.set_ylabel(f'{name_output}')
-
+    #ax.set_title(f'Prediction Real x Pred - {title}')
+    ax.set_xlabel('Ciclos', fontsize=22)
+    plt.xticks(fontsize=18)
+    ax.set_ylabel(f'{name_output} (ciclos)', fontsize=22)
+    plt.yticks(fontsize=18)
     ax.plot(y_real,
-            'o', color='royalblue', label='Real')
+            'o', color='royalblue', label='RUL real')
 
     ax.plot(y_pred,
-            'o--', color='firebrick', label='Predito', linewidth=2)
+            'o--', color='firebrick', label='RUL prevista', linewidth=2)
 
-    ax.legend(ncol=2)
+    ax.legend(ncol=2, fontsize=18)
     ax.set_xlim(-10,1115)
     return fig
 
@@ -198,7 +201,7 @@ def plot_features_importance(features_name: List[str],
 
     df_coef = df_coef[df_coef["Coef"] != 0]
     df_coef.sort_values("Coef", inplace=True, ascending=True)
-    plt.rcParams['font.size'] = 11
+    plt.rcParams['font.size'] = 18
     fig = plt.figure(figsize=(15, 9))
     plt.barh(df_coef["Feature"], df_coef["Coef"],
              color='darkblue')
@@ -207,10 +210,11 @@ def plot_features_importance(features_name: List[str],
              df_coef["Coef"][df_coef["Coef"] < 0],
              color='maroon')
 
-    plt.title('Coeficientes Modelo')
+    #plt.title('Coeficientes Modelo')
     plt.xlabel('Pesos')
-    plt.yticks(rotation=45)
-
+    plt.xticks(fontsize=16)
+    plt.yticks(rotation=45, fontsize=16)
+    plt.plot()
     return fig
 
 
@@ -322,10 +326,10 @@ with mlflow.start_run(run_name='LGBMRegressor_baseline'):
                                               'RUL',
                                               'Train',
                                               df_metrics_train)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_train.png')
+    mlflow.log_figure(fig, artifact_file='plot_scatter_train.svg')
 
     fig = plot_prediction(output_model[0], y_train.values, y_train_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_train.png')
+    mlflow.log_figure(fig, artifact_file='plot_pred_train.svg')
 
     df_test = control_panel.apply_rolling_mean(df_test, 'unit_number')
 
@@ -346,10 +350,10 @@ with mlflow.start_run(run_name='LGBMRegressor_baseline'):
                                               'RUL',
                                               'Test',
                                               df_metrics_test)
-    mlflow.log_figure(fig, artifact_file='plot_scatter_test.png')
+    mlflow.log_figure(fig, artifact_file='plot_scatter_test.svg')
 
     fig = plot_prediction(output_model[0], y_test.values, y_test_pred)
-    mlflow.log_figure(fig, artifact_file='plot_pred_test.png')
+    mlflow.log_figure(fig, artifact_file='plot_pred_test.svg')
 
     logger.info("Salvando artefatos no MLFlow.")
     info_columns = []
@@ -373,4 +377,4 @@ with mlflow.start_run(run_name='LGBMRegressor_baseline'):
                                    model.regressor_['regressor']
                                    .feature_importances_)
 
-    mlflow.log_figure(fig, artifact_file='feature_importance.png')
+    mlflow.log_figure(fig, artifact_file='feature_importance.svg')

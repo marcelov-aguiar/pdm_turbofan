@@ -88,3 +88,14 @@ class ManipulateData():
                 Caminho onde se localiza as imagens usada no texto final do projeto.
         """
         return path_manipulate_data.parent.joinpath("img")
+
+    def get_path_mlflow(self) -> Path:
+        """Reponsável por retornar o caminho onde estão salvos os artefatos
+        do MLFlow.
+
+        Returns
+        -------
+        Path
+            Caminho com os artefatos do MLFlow.
+        """
+        return path_manipulate_data.parent.joinpath("4_modeling", "mlflow.db")
