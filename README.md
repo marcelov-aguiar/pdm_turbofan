@@ -39,7 +39,7 @@ docker compose up -d <container_name>
 
 Parar a execução do container o seguinte comando poderá ser executado:
 ```
-docker compose kill deploy_uo2_dp
+docker compose kill <container_name>
 ```
 
 ## Padrão de projeto
